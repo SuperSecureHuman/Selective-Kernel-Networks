@@ -15,11 +15,9 @@ parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--model', type=str, default="SKNet26")
 parser.add_argument('--wandb', type=bool, default=False)
+parser.add_argument('--data', type=str, default="./Images")
 
 args = parser.parse_args()
-
-print(args.wandb)
-
 
 ##############################################
 # Hyperparameters
@@ -29,6 +27,7 @@ EPOCHS = args.epochs
 LEARNING_RATE = args.learning_rate
 WEIGHT_DECAY = 0
 MODEL = args.model
+DATA = args.data
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 RUN_NAME = MODEL + "_lr_" + \
     str(LEARNING_RATE) + "_epoch_" + \
@@ -84,7 +83,7 @@ transform = torchvision.transforms.Compose([
 ])
 
 dataset = torchvision.datasets.ImageFolder(
-    root='/home/venom/repo/SKNets/COVID-19_Radiography_Dataset/Images', transform=transform)
+    root=DATA, transform=transform)
 train_ds, test_ds = random_split(dataset, [int(len(
     dataset)*0.8), int(len(dataset)*0.2)], generator=torch.Generator().manual_seed(42))
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
