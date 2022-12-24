@@ -9,7 +9,6 @@ import sknet
 from utils import train, test
 
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--learning_rate', type=float, default=0.001)
 parser.add_argument('--epochs', type=int, default=10)
@@ -55,6 +54,8 @@ wandb.init(
 
     sync_tensorboard=True,
 
+    save_code=True,
+
     config={
         "learning_rate": LEARNING_RATE,
         "architecture": "SKNet26",
@@ -77,11 +78,12 @@ transform = torchvision.transforms.Compose([
     torchvision.transforms.ToTensor()
 ])
 
-dataset = torchvision.datasets.ImageFolder(root='/home/venom/repo/SKNets/COVID-19_Radiography_Dataset/Images', transform=transform)
-train_ds, test_ds = random_split(dataset, [int(len(dataset)*0.8), int(len(dataset)*0.2)], generator=torch.Generator().manual_seed(42))
+dataset = torchvision.datasets.ImageFolder(
+    root='/home/venom/repo/SKNets/COVID-19_Radiography_Dataset/Images', transform=transform)
+train_ds, test_ds = random_split(dataset, [int(len(
+    dataset)*0.8), int(len(dataset)*0.2)], generator=torch.Generator().manual_seed(42))
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=True)
-
 
 
 ##############################################
@@ -97,18 +99,20 @@ writer.add_graph(model, images)
 writer.close()
 
 
-
 ##############################################
 # Training
 ##############################################
 criterion = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+optimizer = torch.optim.Adam(
+    model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
 total_step = len(train_loader)
 for epoch in range(EPOCHS):
     print("Epoch: ", epoch+1, " / " + str(EPOCHS))
-    train_loss, train_correct, train_total = train(model, train_loader, optimizer, criterion, DEVICE)
-    test_loss, test_correct, test_total, recall, precision = test(model, test_loader, criterion, DEVICE)
+    train_loss, train_correct, train_total = train(
+        model, train_loader, optimizer, criterion, DEVICE)
+    test_loss, test_correct, test_total, recall, precision = test(
+        model, test_loader, criterion, DEVICE)
 
     print('Epoch [{}/{}], Train Loss: {:.4f}, Train Acc: {:.4f}%, Test Loss: {:.4f}, Test Acc: {:.4f}%'.format(
         epoch+1, EPOCHS, train_loss, 100 * train_correct / train_total, test_loss, 100 * test_correct / test_total))
@@ -116,14 +120,10 @@ for epoch in range(EPOCHS):
     writer.add_scalar('training_loss', train_loss, epoch)
     writer.add_scalar('training_accuracy', 100 *
                       train_correct / train_total, epoch)
-    #writer.add_scalar('train_correct', train_loss, epoch)
-    #writer.add_scalar('train_total', train_loss, epoch)
 
     writer.add_scalar('testing_loss', test_loss, epoch)
     writer.add_scalar('testing_accuracy', 100 *
                       test_correct / test_total, epoch)
-    #writer.add_scalar('test_correct', test_correct, epoch)
-    #writer.add_scalar('test_total', test_total, epoch)
 
     writer.add_scalar('recall', recall, epoch)
     writer.add_scalar('precision', precision, epoch)
@@ -142,3 +142,7 @@ writer.close()
 model_path = "models/" + RUN_NAME + ".pth"
 
 torch.save(model.state_dict(), model_path)
+
+wandb.save(model_path)
+
+wandb.finish()
