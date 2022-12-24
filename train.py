@@ -14,6 +14,7 @@ parser.add_argument('--learning_rate', type=float, default=0.001)
 parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--model', type=str, default="SKNet26")
+parser.add_argument('--wandb', type=bool, default=True)
 
 args = parser.parse_args()
 
@@ -48,23 +49,24 @@ torch.backends.cudnn.allow_fp16_reduced_precision_reduction = True
 ##############################################
 # wandb
 ##############################################
-wandb.init(
-    project="SkNets",
-    name=RUN_NAME,
+if args.wandb:
+    wandb.init(
+        project="Selective Kernel Networks",
+        name=RUN_NAME,
 
-    sync_tensorboard=True,
+        sync_tensorboard=True,
 
-    save_code=True,
+        save_code=True,
 
-    config={
-        "learning_rate": LEARNING_RATE,
-        "architecture": "SKNet26",
-        "dataset": "COVID-19 Radiography",
-        "epochs": EPOCHS,
-        "batch_size": BATCH_SIZE,
-        "weight_decay": WEIGHT_DECAY
-    }
-)
+        config={
+            "learning_rate": LEARNING_RATE,
+            "architecture": "SKNet26",
+            "dataset": "COVID-19 Radiography",
+            "epochs": EPOCHS,
+            "batch_size": BATCH_SIZE,
+            "weight_decay": WEIGHT_DECAY
+        }
+    )
 
 
 model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
@@ -143,6 +145,6 @@ model_path = "models/" + RUN_NAME + ".pth"
 
 torch.save(model.state_dict(), model_path)
 
-wandb.save(model_path)
-
-wandb.finish()
+if args.wandb:    
+    wandb.save(model_path)
+    wandb.finish()

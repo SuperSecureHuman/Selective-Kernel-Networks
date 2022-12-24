@@ -18,17 +18,17 @@ def train(model, train_loader, optimizer, criterion, device):
     for batch_idx, (data, target) in enumerate(p_tqdm):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        with torch.cuda.amp.autocast():
-            output = model(data)
-            loss = criterion(output, target)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        #with torch.cuda.amp.autocast():
+        #    output = model(data)
+        #    loss = criterion(output, target)
+        #scaler.scale(loss).backward()
+        #scaler.step(optimizer)
+        #scaler.update()
 
-        #output = model(data)
-        #loss = criterion(output, target)
-        #loss.backward()
-        #optimizer.step()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
         _, predicted = output.max(1)
         total += target.size(0)
         correct += predicted.eq(target).sum().item()
