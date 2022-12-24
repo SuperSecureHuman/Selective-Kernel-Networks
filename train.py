@@ -112,6 +112,7 @@ optimizer = torch.optim.Adam(
     model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
 total_step = len(train_loader)
+highest_accuracy = 0
 for epoch in range(EPOCHS):
     print("Epoch: ", epoch+1, " / " + str(EPOCHS))
     train_loss, train_correct, train_total = train(
@@ -140,6 +141,12 @@ for epoch in range(EPOCHS):
         writer.add_histogram(f'{name}.grad', weight.grad, epoch)
 
     print("\n")
+
+    test_acc = 100 * test_correct / test_total
+
+    if test_acc > highest_accuracy:
+        highest_accuracy = test_acc
+        torch.save(model.state_dict(), 'models/' + RUN_NAME +  'best_test.pth')
 
 writer.flush()
 writer.close()
