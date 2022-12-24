@@ -51,6 +51,7 @@ torch.backends.cudnn.allow_fp16_reduced_precision_reduction = True
 ##############################################
 wandb.init(
     project="SkNets",
+    name=RUN_NAME,
 
     sync_tensorboard=True,
 
