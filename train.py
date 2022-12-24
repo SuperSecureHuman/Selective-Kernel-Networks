@@ -14,9 +14,11 @@ parser.add_argument('--learning_rate', type=float, default=0.001)
 parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--model', type=str, default="SKNet26")
-parser.add_argument('--wandb', type=bool, default=True)
+parser.add_argument('--wandb', type=bool, default=False)
 
 args = parser.parse_args()
+
+print(args.wandb)
 
 
 ##############################################
@@ -49,7 +51,7 @@ torch.backends.cudnn.allow_fp16_reduced_precision_reduction = True
 ##############################################
 # wandb
 ##############################################
-if args.wandb:
+if args.wandb == True:
     wandb.init(
         project="Selective Kernel Networks",
         name=RUN_NAME,
@@ -67,7 +69,8 @@ if args.wandb:
             "weight_decay": WEIGHT_DECAY
         }
     )
-
+else:
+    pass
 
 model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
 
@@ -145,6 +148,6 @@ model_path = "models/" + RUN_NAME + ".pth"
 
 torch.save(model.state_dict(), model_path)
 
-if args.wandb:    
+if args.wandb == True:
     wandb.save(model_path)
     wandb.finish()
