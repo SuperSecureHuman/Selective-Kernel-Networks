@@ -49,20 +49,20 @@ torch.backends.cudnn.allow_fp16_reduced_precision_reduction = True
 ##############################################
 # wandb
 ##############################################
-#wandb.init(
-#    project="SkNets",
-#
-#    sync_tensorboard=True,
-#
-#    config={
-#        "learning_rate": LEARNING_RATE,
-#        "architecture": "SKNet26",
-#        "dataset": "COVID-19 Radiography",
-#        "epochs": EPOCHS,
-#        "batch_size": BATCH_SIZE,
-#        "weight_decay": WEIGHT_DECAY
-#    }
-#)
+wandb.init(
+    project="SkNets",
+
+    sync_tensorboard=True,
+
+    config={
+        "learning_rate": LEARNING_RATE,
+        "architecture": "SKNet26",
+        "dataset": "COVID-19 Radiography",
+        "epochs": EPOCHS,
+        "batch_size": BATCH_SIZE,
+        "weight_decay": WEIGHT_DECAY
+    }
+)
 
 
 model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
