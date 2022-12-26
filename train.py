@@ -16,6 +16,8 @@ parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--model', type=str, default="SKNet26")
 parser.add_argument('--wandb', type=bool, default=False)
 parser.add_argument('--data', type=str, default="./Images")
+parser.add_argument('--seed', type=int, default=42)
+parser.add_argument('--image_size', type=int, default=224)
 
 args = parser.parse_args()
 
@@ -25,16 +27,18 @@ args = parser.parse_args()
 BATCH_SIZE = args.batch_size
 EPOCHS = args.epochs
 LEARNING_RATE = args.learning_rate
-WEIGHT_DECAY = 0
 MODEL = args.model
 DATA = args.data
+SEED = args.seed
+IMAGE_SIZE = args.image_size
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-RUN_NAME = MODEL + "_lr_" + \
-    str(LEARNING_RATE) + "_epoch_" + \
-    str(EPOCHS) + "_decay_" + str(WEIGHT_DECAY)
+WEIGHT_DECAY = 0
+RUN_NAME = MODEL + "_lr_" +  \
+    str(LEARNING_RATE) + "_weight_decay_" + str(WEIGHT_DECAY) + "_epoch_" + \
+    str(EPOCHS) + "_img_size_" + str(IMAGE_SIZE) + "_seed_" + str(SEED)
 
 print("RUNNING ON DEVICE: ", DEVICE)
-
+print(DATA)
 
 ##############################################
 # some flags
@@ -65,7 +69,8 @@ if args.wandb == True:
             "dataset": "COVID-19 Radiography",
             "epochs": EPOCHS,
             "batch_size": BATCH_SIZE,
-            "weight_decay": WEIGHT_DECAY
+            "image_size": IMAGE_SIZE,
+            "seed": SEED,
         }
     )
 else:
@@ -78,16 +83,17 @@ model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
 # Dataset
 ##############################################
 transform = torchvision.transforms.Compose([
-    torchvision.transforms.Resize((224, 224)),
+    torchvision.transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     torchvision.transforms.ToTensor()
 ])
 
 dataset = torchvision.datasets.ImageFolder(
     root=DATA, transform=transform)
-train_ds, test_ds = random_split(dataset, [int(len(
-    dataset)*0.8), int(len(dataset)*0.2)], generator=torch.Generator().manual_seed(42))
-train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
-test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=True)
+train_len = int(len(dataset) * 0.7)
+test_len = len(dataset) - train_len
+train_ds, test_ds = random_split(dataset, [train_len, test_len], generator=torch.Generator().manual_seed(SEED))
+train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)# , num_workers=4, pin_memory=True)
+test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=True) # , num_workers=4, pin_memory=True)
 
 
 ##############################################
@@ -155,5 +161,5 @@ model_path = "models/" + RUN_NAME + ".pth"
 torch.save(model.state_dict(), model_path)
 
 if args.wandb == True:
-    wandb.save(model_path)
+    #wandb.save(model_path)
     wandb.finish()

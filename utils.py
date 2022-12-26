@@ -7,6 +7,7 @@ from torchmetrics.classification import MulticlassRecall
 # Gradient scaler for amp (Mixed Precision)
 scaler = torch.cuda.amp.GradScaler()
 
+
 def train(model, train_loader, optimizer, criterion, device):
     model.train()
     train_loss = 0
