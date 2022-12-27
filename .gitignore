@@ -2,3 +2,6 @@ __pycache__
 wandb/
 models*
 tensorboard*
+*.pt
+*.zip
+*.pbs
