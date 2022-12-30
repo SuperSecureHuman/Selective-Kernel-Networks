@@ -1,11 +1,13 @@
 import argparse
+import os
 
 import torch
 from torch.utils.data import random_split, DataLoader
 import torchvision
 import wandb
+import timm
 
-import sknet
+#import sknet
 from utils import train, test, EarlyStopping
 
 
@@ -35,7 +37,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 WEIGHT_DECAY = 0
 RUN_NAME = MODEL + "_lr_" +  \
     str(LEARNING_RATE) + "_weight_decay_" + str(WEIGHT_DECAY) + "_epoch_" + \
-    str(EPOCHS) + "_img_size_" + str(IMAGE_SIZE) + "_seed_" + str(SEED) + "_Normalised_HPC"
+    str(EPOCHS) + "_img_size_" + str(IMAGE_SIZE) + \
+    "_seed_" + str(SEED) + "_Normalised_NoAug_HPC"
 
 print("RUNNING ON DEVICE: ", DEVICE)
 print(DATA)
@@ -56,7 +59,7 @@ torch.backends.cudnn.allow_fp16_reduced_precision_reduction = True
 ##############################################
 if args.wandb == True:
     wandb.init(
-        project="Selective Kernel Networks",
+        project="ResNet",
         name=RUN_NAME,
 
         sync_tensorboard=True,
@@ -77,7 +80,8 @@ if args.wandb == True:
 else:
     pass
 
-model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
+model = timm.create_model(MODEL, pretrained=False, num_classes=4).to(DEVICE)
+#model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
 
 
 ##############################################
@@ -85,9 +89,6 @@ model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
 ##############################################
 train_data_transform = torchvision.transforms.Compose([
     torchvision.transforms.Resize(size=(IMAGE_SIZE, IMAGE_SIZE)),
-    torchvision.transforms.RandomHorizontalFlip(p=0.5),
-    torchvision.transforms.RandomRotation(degrees=30),
-    torchvision.transforms.RandomVerticalFlip(p=0.5),
     torchvision.transforms.ToTensor(),
     torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
@@ -97,16 +98,23 @@ test_data_transform = torchvision.transforms.Compose([
     torchvision.transforms.ToTensor(),
     torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
-dataset = torchvision.datasets.ImageFolder(root=DATA, transform=train_data_transform)
-train_ds, _, _ = random_split(dataset, [0.7, 0.2, 0.1], generator=torch.Generator().manual_seed(SEED))
+dataset = torchvision.datasets.ImageFolder(
+    root=DATA, transform=train_data_transform)
+train_ds, _, _ = random_split(
+    dataset, [0.7, 0.2, 0.1], generator=torch.Generator().manual_seed(SEED))
 
-dataset = torchvision.datasets.ImageFolder(root=DATA, transform=test_data_transform)
-_, val_ds, test_ds = random_split(dataset, [0.7, 0.2,0.1], generator=torch.Generator().manual_seed(SEED))
+dataset = torchvision.datasets.ImageFolder(
+    root=DATA, transform=test_data_transform)
+_, val_ds, test_ds = random_split(
+    dataset, [0.7, 0.2, 0.1], generator=torch.Generator().manual_seed(SEED))
 
 
-train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True , num_workers=4, pin_memory=True)
-test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE, shuffle=False , num_workers=4, pin_memory=True)
-val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False , num_workers=4, pin_memory=True)
+train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE,
+                          shuffle=True, num_workers=4, pin_memory=True)
+test_loader = DataLoader(test_ds, batch_size=BATCH_SIZE,
+                         shuffle=False, num_workers=4, pin_memory=True)
+val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE,
+                        shuffle=False, num_workers=4, pin_memory=True)
 
 
 ##############################################
@@ -129,8 +137,6 @@ criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(
     model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
-early_stopping = EarlyStopping(
-    patience=5, verbose=True, path=RUN_NAME+'_best.pt')
 
 total_step = len(train_loader)
 highest_accuracy = 0
@@ -150,25 +156,24 @@ for epoch in range(EPOCHS):
     print("Precision: ", precision)
     print("F1 Score: ", (2*recall*precision) / (recall+precision))
 
-    early_stopping(val_loss, model)
-
-    if early_stopping.early_stop:
-        temp_high = 100 * val_correct / val_total
-        if temp_high > highest_accuracy:
-            highest_accuracy = temp_high
-        early_stopping.path = './best/' + RUN_NAME+'_best_' + str(temp_high) + '.pt'
-        print("Early stopping")
-        early_stopping.early_stop = False
-        early_stopping.counter = 0
-        early_stopping.best_score = None
+    # Save Best model till now with epoch number, and val_accuracy
+    if 100 * val_correct / val_total > highest_accuracy:
+        # delete previous best model
+        if epoch != 0:
+            os.remove(file_name_best)
+        highest_accuracy = 100 * val_correct / val_total
+        best_epoch = epoch
+        file_name_best = "./res_best/" + RUN_NAME + '_' + \
+            str(best_epoch) + '_' + str(highest_accuracy) + '.pt'
+        torch.save(model.state_dict(), file_name_best)
+        print("Saved Best Model")
 
     writer.add_scalar('training_loss', train_loss, epoch)
     writer.add_scalar('training_accuracy', 100 *
                       train_correct / train_total, epoch)
 
     writer.add_scalar('Val_Loss', val_loss, epoch)
-    writer.add_scalar('Val_Acc', 100 *
-                      val_correct / val_total, epoch)
+    writer.add_scalar('Val_Acc', 100 * val_correct / val_total, epoch)
 
     writer.add_scalar('val_recall', recall, epoch)
     writer.add_scalar('val_precision', precision, epoch)
@@ -182,22 +187,22 @@ for epoch in range(EPOCHS):
     print("\n")
 
 
-model_path = "models/" + RUN_NAME + ".pt"
+model_path = "res_models/" + RUN_NAME + ".pt"
 torch.save(model.state_dict(), model_path)
 
 print("-----------Test Set Results-----------")
 
-model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
+model = timm.create_model(MODEL, pretrained=False, num_classes=4).to(DEVICE)
+#model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
 
-model.load_state_dict(torch.load('./best/'  + RUN_NAME+'_best_' + str(highest_accuracy) + '.pt'))
+model.load_state_dict(torch.load(file_name_best))
 
 test_loss, test_correct, test_total, test_recall, test_pres = test(
     model, test_loader, criterion, DEVICE)
 
 
 writer.add_scalar('Test_Loss', test_loss, EPOCHS)
-writer.add_scalar('TestAcc', 100 *
-                  test_correct / test_total, EPOCHS)
+writer.add_scalar('TestAcc', 100 * test_correct / test_total, EPOCHS)
 writer.add_scalar('val_recall', test_recall, EPOCHS)
 writer.add_scalar('val_precision', test_pres, EPOCHS)
 writer.add_scalar('val_f1_score', (2*test_recall*test_pres) /

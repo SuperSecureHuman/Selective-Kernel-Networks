@@ -3,6 +3,7 @@ import torchvision
 
 
 test_data_transform = torchvision.transforms.Compose([
+    torchvision.transforms.Grayscale(num_output_channels=1),
     torchvision.transforms.Resize(size=(224, 224)),
     torchvision.transforms.ToTensor()
     ])
@@ -13,11 +14,13 @@ print(image_data.classes)
 
 image_data_loader = DataLoader(
     image_data,
-    batch_size=1024,
+    batch_size=2048,
     shuffle=False,
     num_workers=0)
+
 def mean_std(loader):
   images, lebels =  loader
+  #print(images.shape)
   # shape of images = [b,c,w,h]
   mean, std = images.mean([0,2,3]), images.std([0,2,3])
   return mean, std
