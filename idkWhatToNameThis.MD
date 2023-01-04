@@ -25,7 +25,7 @@ Gib insighs on with and without augmentations
 
 Provide model graph for skConv block
 
-Make sure to give the insight that highway/skip connections are implemented here
+Make sure to give the insight that highway/skip connections are used here
 
 ## Cites till now
 
@@ -42,3 +42,5 @@ Make sure to give the insight that highway/skip connections are implemented here
 Tensorboard (?)
 
 pytorch citation
+
+<https://www.kaggle.com/datasets/tawsifurrahman/covid19-radiography-database>
