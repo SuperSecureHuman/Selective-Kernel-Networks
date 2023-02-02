@@ -3,7 +3,6 @@ import torchvision
 
 
 test_data_transform = torchvision.transforms.Compose([
-    torchvision.transforms.Grayscale(num_output_channels=1),
     torchvision.transforms.Resize(size=(224, 224)),
     torchvision.transforms.ToTensor()
     ])

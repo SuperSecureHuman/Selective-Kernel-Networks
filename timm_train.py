@@ -1,14 +1,18 @@
 import argparse
 import os
+from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 import torch
 from torch.utils.data import random_split, DataLoader
+import seaborn as sns
+
 import torchvision
 import wandb
 import timm
+import pandas as pd
 
-#import sknet
-from utils import train, test, EarlyStopping
+from utils import *
 
 
 parser = argparse.ArgumentParser()
@@ -36,9 +40,9 @@ IMAGE_SIZE = args.image_size
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 WEIGHT_DECAY = 0
 RUN_NAME = MODEL + "_lr_" +  \
-    str(LEARNING_RATE) + "_weight_decay_" + str(WEIGHT_DECAY) + "_epoch_" + \
+    str(LEARNING_RATE) + "_epoch_" + \
     str(EPOCHS) + "_img_size_" + str(IMAGE_SIZE) + \
-    "_seed_" + str(SEED) + "_Normalised_NoAug_HPC"
+    "_seed_" + str(SEED)
 
 print("RUNNING ON DEVICE: ", DEVICE)
 print(DATA)
@@ -52,6 +56,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
 torch.backends.cudnn.allow_fp16_reduced_precision_reduction = True
+torch.manual_seed(SEED)
 
 
 ##############################################
@@ -59,12 +64,12 @@ torch.backends.cudnn.allow_fp16_reduced_precision_reduction = True
 ##############################################
 if args.wandb == True:
     wandb.init(
-        project="ResNet",
+        project="TIMM",
         name=RUN_NAME,
 
         sync_tensorboard=True,
 
-        save_code=True,
+        save_code=False,
 
         config={
             "learning_rate": LEARNING_RATE,
@@ -80,7 +85,7 @@ if args.wandb == True:
 else:
     pass
 
-model = timm.create_model(MODEL, pretrained=False, num_classes=4).to(DEVICE)
+model = timm.create_model(MODEL, pretrained=True, num_classes=4).to(DEVICE)
 #model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
 
 
@@ -148,7 +153,7 @@ for epoch in range(EPOCHS):
     val_loss, val_correct, val_total, recall, precision = test(
         model, val_loader, criterion, DEVICE)
 
-    print('Epoch [{}/{}], Train Loss: {:.4f}, Train Acc: {:.4f}%, Test Loss: {:.4f}, Test Acc: {:.4f}%'.format(
+    print('Epoch [{}/{}], Train Loss: {:.4f}, Train Acc: {:.4f}%, Val Loss: {:.4f}, Val Acc: {:.4f}%'.format(
         epoch+1, EPOCHS, train_loss, 100 * train_correct / train_total, val_loss, 100 * val_correct / val_total))
 
     # print pres and recall and f1 score
@@ -175,12 +180,35 @@ for epoch in range(EPOCHS):
     writer.add_scalar('Val_Loss', val_loss, epoch)
     writer.add_scalar('Val_Acc', 100 * val_correct / val_total, epoch)
 
-    writer.add_scalar('val_recall', recall, epoch)
-    writer.add_scalar('val_precision', precision, epoch)
-    writer.add_scalar('val_f1_score', (2*recall*precision) /
+    print("\n")
+
+writer.add_scalar('val_recall', recall, epoch)
+writer.add_scalar('val_precision', precision, epoch)
+writer.add_scalar('val_f1_score', (2*recall*precision) /
                       (recall+precision), epoch)
 
-    print("\n")
+predicted, output_probs = get_probs_preds(model, val_loader, DEVICE)
+
+# convert both to numpy arrays from torch
+predicted = predicted.numpy()
+output_probs = output_probs.numpy()
+
+# Save output_probs in a csv file
+output_probs = pd.DataFrame(output_probs)
+output_probs.to_csv(f"{MODEL}_val_probs.csv", index=False)
+
+correct_labels = get_right_labels(val_loader)
+
+# Get class Names from the test_loader
+class_names = ['COVID', 'Lung_Opacity', 'Normal', 'Viral Pneumonia']
+
+def get_cf_matrix(correct_labels, predicted, class_names):
+    cf_matrix = confusion_matrix(correct_labels, predicted)
+    cf_matrix = pd.DataFrame(cf_matrix, index=class_names, columns=class_names)
+    plt.figure(figsize=(10,7))
+    return sns.heatmap(cf_matrix, annot=True, fmt="d").get_figure()
+
+writer.add_figure("Val Confusion Matrix", get_cf_matrix(correct_labels, predicted, class_names), global_step=0)
 
 
 model_path = "timmmodels/" + RUN_NAME + ".pt"
@@ -199,10 +227,24 @@ test_loss, test_correct, test_total, test_recall, test_pres = test(
 
 writer.add_scalar('Test_Loss', test_loss, EPOCHS)
 writer.add_scalar('TestAcc', 100 * test_correct / test_total, EPOCHS)
-writer.add_scalar('val_recall', test_recall, EPOCHS)
-writer.add_scalar('val_precision', test_pres, EPOCHS)
-writer.add_scalar('val_f1_score', (2*test_recall*test_pres) /
+writer.add_scalar('Test_Recall', test_recall, EPOCHS)
+writer.add_scalar('Test_Precision', test_pres, EPOCHS)
+writer.add_scalar('Test_F1', (2*test_recall*test_pres) /
                   (test_recall+test_pres), EPOCHS)
+
+
+predicted, output_probs = get_probs_preds(model, test_loader, DEVICE)
+predicted = predicted.numpy()
+output_probs = output_probs.numpy()
+output_probs = pd.DataFrame(output_probs)
+output_probs.to_csv(f"{MODEL}_test_probs.csv", index=False)
+
+correct_labels = get_right_labels(test_loader)
+cm = confusion_matrix(correct_labels, predicted)
+plt.figure(figsize=(20,14))
+fig = sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names, yticklabels=class_names).get_figure()
+writer.add_figure("Test Confusion Matrix", get_cf_matrix(correct_labels, predicted, class_names), global_step=0)
+
 
 writer.flush()
 writer.close()

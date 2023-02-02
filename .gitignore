@@ -5,3 +5,4 @@ tensorboard*
 *.pt
 *.zip
 *.pbs
+data/*

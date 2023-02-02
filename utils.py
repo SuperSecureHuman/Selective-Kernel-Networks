@@ -2,6 +2,7 @@
 
 from tqdm import tqdm
 import torch
+import torch.nn as nn
 import numpy as np
 
 from torchmetrics.classification import MulticlassPrecision
@@ -74,6 +75,30 @@ def test(model, test_loader, criterion, device):
                 f"Test Loss: {test_loss:.3f} | Test Acc: {100.*correct/total:.3f}")
 
     return loss_sum/len_loader, correct, total, sum(rec)/len(test_loader), sum(prec)/len(test_loader)
+
+def get_probs_preds(model, loader, device):
+    predicted = torch.tensor([])
+    output_probs = torch.tensor([])
+    with torch.no_grad():
+        for data in loader:
+            images, labels = data
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            outputs = nn.Softmax(dim=1)(outputs)
+            _, predicted_new = torch.max(outputs.data, 1)
+            predicted_new = predicted_new.cpu()
+            predicted = torch.cat((predicted, predicted_new), 0)
+            output_probs = torch.cat((output_probs, outputs.data.cpu()), 0)
+    return predicted, output_probs
+
+def get_right_labels(loader):
+    correct_labels = []
+    for data in loader:
+        _, labels = data
+        correct_labels.append(labels)
+    correct_labels = torch.cat(correct_labels, 0)
+    correct_labels = correct_labels.numpy()
+    return correct_labels
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
