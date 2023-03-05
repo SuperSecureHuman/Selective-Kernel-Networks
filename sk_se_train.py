@@ -14,6 +14,7 @@ import pandas as pd
 
 from utils import *
 
+import sk_se
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--learning_rate', type=float, default=0.001)
@@ -64,7 +65,7 @@ torch.manual_seed(SEED)
 ##############################################
 if args.wandb == True:
     wandb.init(
-        project="TIMM_Scratch",
+        project="TIMM",
         name=RUN_NAME,
 
         sync_tensorboard=True,
@@ -85,8 +86,9 @@ if args.wandb == True:
 else:
     pass
 
-model = timm.create_model(MODEL, pretrained=False, num_classes=4).to(DEVICE)
+#model = timm.create_model(MODEL, pretrained=False, num_classes=4).to(DEVICE)
 #model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
+model = sk_se.return_model().to(DEVICE)
 
 
 ##############################################
@@ -216,9 +218,9 @@ torch.save(model.state_dict(), model_path)
 
 print("-----------Test Set Results-----------")
 
-model = timm.create_model(MODEL, pretrained=False, num_classes=4).to(DEVICE)
+#model = timm.create_model(MODEL, pretrained=False, num_classes=4).to(DEVICE)
 #model = getattr(sknet, MODEL)(nums_class=4).to(DEVICE)
-
+model = sk_se.return_model().to(DEVICE)
 model.load_state_dict(torch.load(file_name_best))
 
 test_loss, test_correct, test_total, test_recall, test_pres = test(
